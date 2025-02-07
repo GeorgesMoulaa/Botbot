@@ -1,6 +1,5 @@
-# API Telegram
-TELEGRAM_TOKEN = "8183061202:AAEGqmjBUB6owUjGs6KoJxxnbMfl-ueXDFQ"
-TELEGRAM_CHAT_ID = "949838495"
+import os
 
-# API MEXC
-MEXC_API_URL = "https://www.mexc.com"
+TELEGRAM_TOKEN = os.getenv("8183061202:AAEGqmjBUB6owUjGs6KoJxxnbMfl-ueXDFQ")
+TELEGRAM_CHAT_ID = os.getenv("949838495")
+MEXC_API_URL = os.getenv("https://www.mexc.com")
