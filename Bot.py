@@ -1,9 +1,9 @@
-import requests
+#import requests
 import time
-import json
+import os
 from config import TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, MEXC_API_URL
 
-# Fonction pour envoyer un message Telegram
+# Envoi de message sur Telegram
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
@@ -13,44 +13,48 @@ def send_telegram_message(message):
     }
     requests.post(url, json=payload)
 
-# Fonction pour obtenir les prix des cryptomonnaies
+# Récupération des prix crypto
 def get_crypto_prices():
     try:
-        url = f"{MEXC_API_URL}/api/v3/ticker/price"
+        url = f"{MEXC_API_URL}/api/v3/ticker/price"  # Assure-toi que l'URL est correcte
         response = requests.get(url)
-        if response.status_code == 200:
+        
+        if response.status_code == 200:  # Vérifie si la réponse de l'API est valide
             data = response.json()
             if isinstance(data, list):
                 return data
             else:
-                return {"error": "Réponse invalide de l'API"}
+                send_telegram_message(f"Erreur : Réponse invalide de l'API")
         else:
-            return {"error": f"Erreur API : {response.status_code}"}
+            send_telegram_message(f"Erreur API : {response.status_code}")
     except requests.exceptions.RequestException as e:
-        return {"error": f"Erreur de connexion : {e}"}
+        send_telegram_message(f"Erreur de connexion : {e}")
+    except ValueError:
+        send_telegram_message("Erreur de traitement de la réponse JSON")
 
-# Fonction principale pour analyser les opportunités
+# Vérifie les opportunités de trading
 def find_trading_opportunity():
     prices = get_crypto_prices()
-    if not prices or "error" in prices:
-        send_telegram_message(f"⚠️ Erreur : {prices.get('error', 'Aucune donnée reçue')}")
+    if not prices:
         return
 
     for crypto in prices:
         symbol = crypto.get("symbol")
         price = float(crypto.get("price", 0))
 
-        # Condition d'opportunité (ici USDT < 1 par exemple)
         if "USDT" in symbol and price < 1:
             send_telegram_message(f"⚡ Opportunité : {symbol} à {price} USDT")
 
-# Fonction pour vérifier que le bot fonctionne toutes les heures
-def check_bot_status():
+# Vérifie que le bot fonctionne chaque heure
+def send_hourly_update():
     send_telegram_message("🚀 Bot de trading en fonctionnement")
-
-# Lancer les vérifications toutes les heures
+    
+# Fonction principale du bot
 if __name__ == "__main__":
+    send_telegram_message("🚀 Bot de trading démarré !")
+    
     while True:
-        find_trading_opportunity()  # Vérifier les opportunités de trading
-        check_bot_status()  # Vérifier le bon fonctionnement du bot
-        time.sleep(3600)  # Attendre 1 heure (3600 secondes)
+        find_trading_opportunity()  # Vérifie les opportunités de trading
+        send_hourly_update()  # Envoie une mise à jour horaire
+        
+        time.sleep(3600)  # Attendre une heure avant la prochaine vérification Fonction pour envoyer un message Telegram
