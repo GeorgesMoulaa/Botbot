@@ -31,26 +31,26 @@ def find_trading_opportunity():
     if not prices:
         return
 
-    # Exemple de stratégie : tu peux ajouter ta logique ici
+    # Exemple de stratégie simple pour détecter les cryptos
     for crypto in prices:
         symbol = crypto["symbol"]
         price = float(crypto["price"])
 
-        # Ajouter ici la logique pour filtrer les opportunités
+        # Envoie un message pour chaque crypto détectée
         send_telegram_message(f"Crypto: {symbol}, Prix: {price} USDT")
 
 if __name__ == "__main__":
     send_telegram_message("🚀 Bot de trading démarré")
     
-    last_message_time = time.time()  # Temps initial (premier démarrage)
+    last_message_time = time.time()  # Temps initial du dernier message d'état
     
     while True:
-        find_trading_opportunity()  # Vérifier les prix et envoyer des alertes
+        find_trading_opportunity()  # Vérifie les prix des cryptos
         current_time = time.time()
         
-        # Vérifier si une heure s'est écoulée
-        if current_time - last_message_time >= 3600:  # 3600 secondes = 1 heure
-            send_telegram_message("⏰ Le bot est toujours en fonction !")
-            last_message_time = current_time  # Réinitialiser l'heure du dernier message
+        # Vérifie si une heure s'est écoulée (3600 secondes)
+        if current_time - last_message_time >= 3600:
+            send_telegram_message("⏰ Le bot est toujours en fonction !")  # Message d'état
+            last_message_time = current_time  # Réinitialise le compteur du temps
         
-        time.sleep(60)  # Vérifier toutes les 60 secondes
+        time.sleep(60)  # Attendre 60 secondes avant de refaire un check
