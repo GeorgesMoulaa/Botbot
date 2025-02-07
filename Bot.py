@@ -2,7 +2,7 @@ import requests  # Ajout de la bibliothèque requests
 import time
 import os
 
-from config import TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
+from config import TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, MEXC_API_URL  # Assure-toi que MEXC_API_URL est bien défini dans ton fichier config
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -43,11 +43,14 @@ def find_trading_opportunity():
 
 def main():
     send_telegram_message("🚀 Bot de trading démarré !")
-
+    
     while True:
-        find_trading_opportunity()
+        find_trading_opportunity()  # Recherche des opportunités de trading
+        
+        # Envoie un message chaque heure indiquant que le bot est en fonctionnement
         send_telegram_message("🚀 Bot de trading en fonctionnement")
-        time.sleep(3600)  # Envoie un message toutes les heures
+        
+        time.sleep(3600)  # Attendre une heure avant de réexécuter la boucle
 
 if __name__ == "__main__":
     main()
