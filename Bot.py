@@ -14,11 +14,26 @@ def send_telegram_message(message):
 
 def get_crypto_prices():
     try:
-        response = requests.get(f"{MEXC_API_URL}/api/v3/ticker/price")
-        return response.json()
-    except Exception as e:
-        send_telegram_message(f"Erreur lors de la récupération des prix : {str(e)}")
-        return None
+        url = f"{MEXC_API_URL}/api/v3/ticker/price"  # Assure-toi que l'URL est correcte
+        response = requests.get(url)
+        
+        if response.status_code == 200:  # Vérifie que l'API répond bien
+            try:
+                data = response.json()
+                if isinstance(data, list):  # Vérifie que c'est bien une liste d'infos
+                    return data
+                else:
+                    return {"error": "Réponse inattendue de l'API."}
+            except ValueError:
+                return {"error": "Impossible de lire la réponse JSON."}
+        else:
+            return {"error": f"Erreur API : {response.status_code} - {response.text}"}
+
+    except requests.exceptions.RequestException as e:
+        return {"error": f"Erreur de connexion : {str(e)}"}
+
+    except requests.exceptions.RequestException as e:
+        return {"error": f"Erreur de connexion : {str(e)}"}
 
 def find_trading_opportunity():
     prices = get_crypto_prices()
