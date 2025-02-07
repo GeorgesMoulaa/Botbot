@@ -1,0 +1,6 @@
+# API Telegram
+TELEGRAM_TOKEN = "8183061202:AAEGqmjBUB6owUjGs6KoJxxnbMfl-ueXDFQ"
+TELEGRAM_CHAT_ID = "949838495"
+
+# API MEXC
+MEXC_API_URL = "https://www.mexc.com"
