@@ -1,1 +1,1 @@
-worker: python Bot.py
+worker: bash start.sh
