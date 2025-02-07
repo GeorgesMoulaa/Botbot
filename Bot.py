@@ -51,7 +51,10 @@ def find_trading_opportunity():
             send_telegram_message(f"⚡ Opportunité détectée : {symbol} à {price} USDT !")
 
 if __name__ == "__main__":
-    send_telegram_message("🚀 Bot de trading démarré !")
+    if not os.path.exists("bot_started.txt"):  # Vérifie si le fichier existe
+        send_telegram_message("🚀 Bot de trading démarré !")
+        open("bot_started.txt", "w").close()  # Crée un fichier pour éviter le spam
+
     while True:
         find_trading_opportunity()
-        time.sleep(60)  # Vérifier toutes les 60 secondes
+        time.sleep(60)
