@@ -14,12 +14,15 @@ def send_telegram_message(message):
 
 def get_crypto_prices():
     try:
-        # Simuler des prix
-        prices = [
-            {"symbol": "BTCUSDT", "price": 0.5},  # Prix déclencheur
-            {"symbol": "ETHUSDT", "price": 1500}, # Prix non déclencheur
-        ]
-        return prices
+        response = requests.get(f"{MEXC_API_URL}/api/v3/ticker/price")
+        if response.status_code == 200:
+            data = response.json()
+            if isinstance(data, list):
+                return data
+            else:
+                return {"error": "Réponse invalide de l'API"}
+        else:
+            return {"error": f"Erreur API : {response.status_code}"}
     except requests.exceptions.RequestException as e:
         return {"error": f"Erreur de connexion : {e}"}
 
@@ -28,17 +31,26 @@ def find_trading_opportunity():
     if not prices:
         return
 
-    # Exemple de stratégie : détecter une crypto qui répond à la condition
+    # Exemple de stratégie : tu peux ajouter ta logique ici
     for crypto in prices:
         symbol = crypto["symbol"]
         price = float(crypto["price"])
 
-        # Si la crypto est USDT et son prix est inférieur à 1
-        if "USDT" in symbol and price < 1:
-            send_telegram_message(f"⚡ Opportunité : {symbol} à {price} USDT")
+        # Ajouter ici la logique pour filtrer les opportunités
+        send_telegram_message(f"Crypto: {symbol}, Prix: {price} USDT")
 
 if __name__ == "__main__":
     send_telegram_message("🚀 Bot de trading démarré")
+    
+    last_message_time = time.time()  # Temps initial (premier démarrage)
+    
     while True:
-        find_trading_opportunity()
+        find_trading_opportunity()  # Vérifier les prix et envoyer des alertes
+        current_time = time.time()
+        
+        # Vérifier si une heure s'est écoulée
+        if current_time - last_message_time >= 3600:  # 3600 secondes = 1 heure
+            send_telegram_message("⏰ Le bot est toujours en fonction !")
+            last_message_time = current_time  # Réinitialiser l'heure du dernier message
+        
         time.sleep(60)  # Vérifier toutes les 60 secondes
