@@ -14,43 +14,28 @@ def send_telegram_message(message):
 
 def get_crypto_prices():
     try:
-        url = f"{MEXC_API_URL}/api/v3/ticker/price"
-        response = requests.get(url)
-        
-        if response.status_code == 200:  # Vérifie si la réponse est OK
-            try:
-                data = response.json()
-                if isinstance(data, list):  # Vérifie si 'data' est une liste
-                    print("Réponse API:", data)  # Affiche les données de l'API pour déboguer
-                    return data
-                else:
-                    return {"error": "Réponse invalide"}
-            except ValueError:
-                return {"error": "Impossible de convertir la réponse"}
-        else:
-            return {"error": f"Erreur API : {response.status_code}"}
+        # Simuler des prix
+        prices = [
+            {"symbol": "BTCUSDT", "price": 0.5},  # Prix déclencheur
+            {"symbol": "ETHUSDT", "price": 1500}, # Prix non déclencheur
+        ]
+        return prices
     except requests.exceptions.RequestException as e:
         return {"error": f"Erreur de connexion : {e}"}
 
 def find_trading_opportunity():
     prices = get_crypto_prices()
-    
     if not prices:
-        send_telegram_message("Erreur: Impossible de récupérer les prix.")
         return
-    
-    # Vérifie le format des données
-    print(prices)  # Affiche la structure de 'prices'
 
+    # Exemple de stratégie : détecter une crypto qui répond à la condition
     for crypto in prices:
-        # Vérifie si 'crypto' est un dictionnaire avant d'essayer d'y accéder
-        if isinstance(crypto, dict):
-            symbol = crypto.get("symbol", "")
-            price = float(crypto.get("price", 0))
-            if "USDT" in symbol and price < 1:
-                send_telegram_message(f"⚡ Opportunité détectée : {symbol} à {price}")
-        else:
-            print("Données mal formatées:", crypto)
+        symbol = crypto["symbol"]
+        price = float(crypto["price"])
+
+        # Si la crypto est USDT et son prix est inférieur à 1
+        if "USDT" in symbol and price < 1:
+            send_telegram_message(f"⚡ Opportunité : {symbol} à {price} USDT")
 
 if __name__ == "__main__":
     send_telegram_message("🚀 Bot de trading démarré")
