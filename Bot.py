@@ -1,6 +1,7 @@
 import requests
 import time
 import json
+import os 
 from config import TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, MEXC_API_URL
 
 def send_telegram_message(message):
