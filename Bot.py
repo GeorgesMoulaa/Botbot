@@ -1,7 +1,6 @@
 import requests
 import time
 import json
-import os 
 from config import TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, MEXC_API_URL
 
 def send_telegram_message(message):
@@ -16,46 +15,45 @@ def send_telegram_message(message):
 def get_crypto_prices():
     try:
         url = f"{MEXC_API_URL}/api/v3/ticker/price"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-        }
-        response = requests.get(url, headers=headers)
-
-        if response.status_code == 200:  # Vérifie si la requête a réussi
+        response = requests.get(url)
+        
+        if response.status_code == 200:  # Vérifie si la réponse est OK
             try:
                 data = response.json()
-                if isinstance(data, list):  # Vérifie que c'est une liste de prix
-                    print("Réponse API:", data)  # Log pour debug
+                if isinstance(data, list):  # Vérifie si 'data' est une liste
+                    print("Réponse API:", data)  # Affiche les données de l'API pour déboguer
                     return data
                 else:
                     return {"error": "Réponse invalide"}
             except ValueError:
-                return {"error": "Impossible de convertir la réponse en JSON"}
+                return {"error": "Impossible de convertir la réponse"}
         else:
-            return {"error": f"Erreur API : {response.status_code} - {response.text}"}
-
+            return {"error": f"Erreur API : {response.status_code}"}
     except requests.exceptions.RequestException as e:
         return {"error": f"Erreur de connexion : {e}"}
 
 def find_trading_opportunity():
     prices = get_crypto_prices()
+    
     if not prices:
+        send_telegram_message("Erreur: Impossible de récupérer les prix.")
         return
+    
+    # Vérifie le format des données
+    print(prices)  # Affiche la structure de 'prices'
 
-    # Exemple de stratégie : détecter une crypto qui a chuté de plus de 5% en 24h
     for crypto in prices:
-        symbol = crypto["symbol"]
-        price = float(crypto["price"])
-        # Ici tu peux ajouter une vraie logique de détection d'opportunité
-
-        if "USDT" in symbol and price < 1:  # Condition basique pour tester
-            send_telegram_message(f"⚡ Opportunité détectée : {symbol} à {price} USDT !")
+        # Vérifie si 'crypto' est un dictionnaire avant d'essayer d'y accéder
+        if isinstance(crypto, dict):
+            symbol = crypto.get("symbol", "")
+            price = float(crypto.get("price", 0))
+            if "USDT" in symbol and price < 1:
+                send_telegram_message(f"⚡ Opportunité détectée : {symbol} à {price}")
+        else:
+            print("Données mal formatées:", crypto)
 
 if __name__ == "__main__":
-    if not os.path.exists("bot_started.txt"):  # Vérifie si le fichier existe
-        send_telegram_message("🚀 Bot de trading démarré !")
-        open("bot_started.txt", "w").close()  # Crée un fichier pour éviter le spam
-
+    send_telegram_message("🚀 Bot de trading démarré")
     while True:
         find_trading_opportunity()
-        time.sleep(60)
+        time.sleep(60)  # Vérifier toutes les 60 secondes
