@@ -1,4 +1,4 @@
-import requests  # Ajout de la bibliothèque requests
+import requests  # Importation de la bibliothèque requests
 import time
 import os
 
@@ -48,18 +48,8 @@ def main():
     """Fonction principale qui gère la logique du bot."""
     send_telegram_message("🚀 Bot de trading démarré !")
     
-    last_message_time = time.time()  # Temps du dernier message envoyé
-
     while True:
-        current_time = time.time()
-        
-        # Vérifie toutes les heures pour envoyer un message de statut
-        if current_time - last_message_time >= 3600:
-            send_telegram_message("🚀 Bot de trading en fonctionnement")
-            last_message_time = current_time
-        
         find_trading_opportunity()  # Recherche des opportunités de trading
-        
         time.sleep(60)  # Attendre 60 secondes avant de vérifier à nouveau les opportunités
 
 if __name__ == "__main__":
