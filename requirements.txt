@@ -1,5 +1,2 @@
 requests
-pandas
-numpy
 python-telegram-bot
-mexc
