@@ -1,4 +1,4 @@
 requests
-numpy
 pandas
-pandas-ta
+numpy
+python-telegram-bot
