@@ -24,6 +24,7 @@ def find_trading_opportunity():
     prices = get_crypto_prices()  # Utilisation des prix simulés
     if not prices:
         return
+    
 
     # Exemple de stratégie : détecter une crypto qui répond à un critère
     for crypto in prices:
@@ -39,3 +40,26 @@ if __name__ == "__main__":
     while True:
         find_trading_opportunity()  # Tester à chaque exécution
         time.sleep(60)  # Vérifier toutes les 60 secondes
+
+import requests
+
+def get_crypto_prices():
+    url = "https://www.mxc.com/open/api/v2/market/ticker"  # L'URL de l'API MEXC
+    params = {
+        "symbol": "BTCUSDT"  # Le symbole de la crypto à récupérer
+    }
+    
+    # Envoi de la requête GET à l'API
+    response = requests.get(url, params=params)
+
+    # Vérification si la requête est réussie (code 200)
+    if response.status_code == 200:
+        data = response.json()  # Récupère les données JSON
+        print(data)  # Affiche les données reçues
+        return data
+    else:
+        print(f"Erreur lors de la requête. Code statut: {response.status_code}")
+        return None
+
+# Appel de la fonction
+get_crypto_prices()
