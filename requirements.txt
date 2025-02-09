@@ -1,4 +1,4 @@
 python-telegram-bot
 requests
 numpy
-TA-Lib
+Talib
