@@ -1,62 +1,85 @@
+import time
 import requests
 import pandas as pd
 import numpy as np
-import time
-from telegram import Bot
+import ccxt
+import telegram
 
-# Configuration API et Telegram
+# Vos informations API et Telegram
 api_key = "mx0vgl2Xgrc1HaoPGr"
 api_secret = "018fc618575f45eb828af5fed21b5aae"
 telegram_token = "8183061202:AAEGqmjBUB6owUjGs6KoJxxnbMfl-ueXDFQ"
-chat_id = "949838495"
+telegram_chat_id = "949838495"
 
-# Initialiser le bot Telegram
-bot = Bot(token=telegram_token)
+# Initialisation du bot Telegram
+bot = telegram.Bot(token=telegram_token)
 
-# Fonction pour obtenir des données historiques de MEXC
-def get_historical_data(symbol, interval='1m', limit=100):
-    url = f'https://api.mexc.com/api/v2/market/kline'
-    params = {
-        'symbol': symbol,
-        'interval': interval,
-        'limit': limit
-    }
-    response = requests.get(url, params=params)
-    data = response.json()['data']
-    return pd.DataFrame(data, columns=["timestamp", "open", "high", "low", "close", "volume"])
+# Initialisation de l'API MEXC
+exchange = ccxt.mexc({
+    'apiKey': api_key,
+    'secret': api_secret,
+})
 
-# Fonction pour calculer le RSI (Relative Strength Index) avec pandas et numpy
-def calculate_rsi(data, period=14):
-    delta = data['close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+# Fonction pour obtenir les données historiques
+def get_historical_data(symbol, timeframe='1m', limit=100):
+    url = f'https://api.mexc.com/api/v2/market/candles?symbol={symbol}&interval={timeframe}&limit={limit}'
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()['data']
+        df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df.set_index('timestamp', inplace=True)
+        return df
+    else:
+        print(f"Erreur de récupération des données : {response.status_code}")
+        return None
 
-    rs = gain / loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
+# Fonction pour calculer la probabilité de succès basée sur RSI et SMA
+def calculate_probability(df):
+    # Calcul du RSI (Relative Strength Index)
+    df['RSI'] = 100 - (100 / (1 + (df['close'].pct_change().dropna().gt(0).mean() / df['close'].pct_change().dropna().lt(0).mean()))))
 
-# Fonction pour envoyer une notification Telegram
-def send_telegram_message(message):
-    bot.send_message(chat_id=chat_id, text=message)
+    # Calcul de la moyenne mobile simple (SMA)
+    df['SMA'] = df['close'].rolling(window=20).mean()
+
+    # Calcul de la probabilité
+    probabilité = 0.8  # Valeur par défaut
+
+    if df['RSI'].iloc[-1] < 30 and df['close'].iloc[-1] > df['SMA'].iloc[-1]:
+        probabilité = 0.9  # Probabilité élevée si conditions de survente et prix au-dessus de la moyenne mobile
+    elif df['RSI'].iloc[-1] > 70 and df['close'].iloc[-1] < df['SMA'].iloc[-1]:
+        probabilité = 0.7  # Probabilité plus faible si conditions de surachat et prix en dessous de la moyenne mobile
+
+    return probabilité
 
 # Fonction de trading
 def trade():
-    symbol = 'BTC_USDT'  # Exemple avec le trading de Bitcoin
-    data = get_historical_data(symbol)
-    data['rsi'] = calculate_rsi(data)
-
-    last_rsi = data['rsi'].iloc[-1]
-    print(f'Last RSI: {last_rsi}')
-
-    # Conditions de trading basées sur RSI
-    if last_rsi > 70:
-        send_telegram_message(f"RSI élevé : {last_rsi}. Vente recommandée.")
-    elif last_rsi < 30:
-        send_telegram_message(f"RSI faible : {last_rsi}. Achat recommandé.")
+    symbol = 'BTC_USDT'  # Exemple de symbole (ajustez si nécessaire)
+    
+    # Récupérer les données historiques
+    df = get_historical_data(symbol)
+    
+    if df is not None:
+        # Calculer la probabilité de succès
+        probabilité = calculate_probability(df)
+        
+        if probabilité >= 0.8:
+            # Condition d'achat
+            if df['close'].iloc[-1] > df['SMA'].iloc[-1]:
+                signal = 'BUY'
+                bot.send_message(chat_id=telegram_chat_id, text=f"Signal de trading: {signal} pour {symbol} avec une probabilité de réussite de {probabilité*100}%")
+                print(f"Signal de trading: {signal}, probabilité de réussite: {probabilité*100}%")
+            # Condition de vente
+            elif df['close'].iloc[-1] < df['SMA'].iloc[-1]:
+                signal = 'SELL'
+                bot.send_message(chat_id=telegram_chat_id, text=f"Signal de trading: {signal} pour {symbol} avec une probabilité de réussite de {probabilité*100}%")
+                print(f"Signal de trading: {signal}, probabilité de réussite: {probabilité*100}%")
+        else:
+            print("Aucune opportunité de trading avec un taux de probabilité suffisant.")
     else:
-        send_telegram_message(f"RSI neutre : {last_rsi}. Pas de position recommandée.")
+        print("Erreur : pas de données disponibles.")
 
-# Boucle de trading
+# Exécution du trading en boucle
 while True:
     trade()
-    time.sleep(60)  # Attendre une minute avant de vérifier à nouveau
+    time.sleep(60)  # Attendre 60 secondes avant de faire une nouvelle demande
