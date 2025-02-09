@@ -1,41 +1,54 @@
 import os
 import time
 import requests
+import numpy as np
 import pandas as pd
 from telegram import Bot
+from telegram.ext import Updater, CommandHandler
 
-# Configuration de votre bot Telegram
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')  # Récupère le token depuis l'environnement
-CHAT_ID = os.getenv('CHAT_ID')  # Récupère l'ID du chat depuis l'environnement
+# Insère tes informations API ici
+MEXC_API_KEY = 'mx0vgl2Xgrc1HaoPGr'  # Ton API Key MEXC
+MEXC_API_SECRET = '018fc618575f45eb828af5fed21b5aae'  # Ton Secret Key MEXC
+TELEGRAM_TOKEN = '8183061202:AAEGqmjBUB6owUjGs6KoJxxnbMfl-ueXDFQ'  # Ton token Telegram
+TELEGRAM_CHAT_ID = '949838495'  # Ton ID Telegram
 
-# Configuration de l'API MEXC
-MEXC_API_KEY = os.getenv('MEXC_API_KEY')  # API Key MEXC
-MEXC_API_SECRET = os.getenv('MEXC_API_SECRET')  # API Secret MEXC
+# Initialiser le bot Telegram
+bot = Bot(TELEGRAM_TOKEN)
 
-# Fonction pour envoyer un message sur Telegram
-def send_telegram_message(message):
-    bot = Bot(token=TELEGRAM_TOKEN)
-    bot.send_message(chat_id=CHAT_ID, text=message)
+# Fonction d'envoi d'une notification
+def send_telegram_notification(message):
+    bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
 
-# Fonction pour récupérer les données du marché MEXC
-def get_market_data():
-    url = "https://api.mexc.com/api/v2/market/ticker"
-    response = requests.get(url)
-    data = response.json()
-    return data
+# Fonction qui analyse les opportunités de trading
+def analyze_trade_opportunity():
+    # Exemple basique de conditions d'opportunité de trading, que tu peux ajuster
+    # On peut ajouter des critères comme le RSI, Moving Average, etc.
+    opportunities = []
 
-# Calcul des indicateurs (RSI, MACD, EMA)
-# Votre code d'indicateurs...
+    # Exemple fictif de données de trading
+    symbols = ['BTCUSDT', 'ETHUSDT', 'XRPUSDT']  # Liste des paires à surveiller
 
-# Fonction principale pour exécuter le bot
+    for symbol in symbols:
+        # Ici tu devras intégrer l'API MEXC pour récupérer des données réelles
+        response = requests.get(f'https://api.mexc.com/api/v2/market/ticker?symbol={symbol}')
+        data = response.json()
+        if 'data' in data:
+            last_price = float(data['data'][0]['last'])
+            if last_price > 50000:  # Exemple de condition pour identifier une opportunité
+                opportunities.append(f"Opportunity found for {symbol} at {last_price}")
+
+    return opportunities
+
+# Fonction principale
 def main():
     while True:
         opportunities = analyze_trade_opportunity()
+
         if opportunities:
             for opportunity in opportunities:
-                send_telegram_message(opportunity)
-        time.sleep(30)  # Attendre 30 secondes avant de chercher à nouveau
+                send_telegram_notification(opportunity)
 
-# Lancer le bot
-if __name__ == '__main__':
+        time.sleep(30)  # Attente de 30 secondes avant la prochaine analyse
+
+if __name__ == "__main__":
     main()
