@@ -42,4 +42,16 @@ if __name__ == "__main__":
     send_telegram_message("🚀 Bot de trading démarré !")
     while True:
         find_trading_opportunity()
-        time.sleep(60)  # Vérifier toutes les 60 secondes
+  time.sleep(60)  # Vérifier toutes les 60 secondes
+
+def get_crypto_prices():
+    try:
+        response = requests.get(MEXC_API_URL)
+        print("Réponse brute:", response.text)  # Ajoute cette ligne pour voir la réponse brute
+        if response.status_code == 200:
+            data = response.json()
+            return data
+        else:
+            return {"error": f"Erreur API: {response.status_code}"}
+    except Exception as e:
+        return {"error": f"Erreur de connexion: {str(e)}"}
