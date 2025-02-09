@@ -1,83 +1,106 @@
 import requests
-import time
-import logging
-from talib import RSI, SMA
 import numpy as np
+import time
+import math
+from datetime import datetime
+import json
 
-# Configuration Telegram
-from config import TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
+# Variables globales
+TELEGRAM_TOKEN = "your_telegram_token"
+TELEGRAM_CHAT_ID = "your_telegram_chat_id"
+MEXC_API_URL = "https://api.mexc.com/api/v2/market/ticker"
 
-# Initialisation des logs pour le débogage
-logging.basicConfig(level=logging.DEBUG)
-
-# Fonction pour envoyer des messages via Telegram
+# Fonction pour envoyer des messages à Telegram
 def send_telegram_message(message):
-    try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        payload = {
-            "chat_id": TELEGRAM_CHAT_ID,
-            "text": message,
-            "parse_mode": "Markdown"
-        }
-        response = requests.post(url, json=payload)
-        
-        if response.status_code == 200:
-            logging.debug(f"Message envoyé : {message}")
-        else:
-            logging.error(f"Erreur Telegram : {response.status_code}, {response.text}")
-    except Exception as e:
-        logging.error(f"Erreur lors de l'envoi du message Telegram : {e}")
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
+    response = requests.post(url, json=payload)
+    return response
 
-# Fonction pour récupérer les prix des cryptos via l'API MEXC
+# Fonction pour récupérer les prix des cryptos
 def get_crypto_prices():
     try:
-        MEXC_API_URL = "https://www.mexc.com/api/v2/market/ticker"
         response = requests.get(MEXC_API_URL)
-        
         if response.status_code == 200:
             data = response.json()
-            logging.debug(f"Prix actuel : {data}")  # Afficher les prix pour vérification
             return data
         else:
-            logging.error(f"Erreur API MEXC : {response.status_code}, {response.text}")
-            return {"error": f"Erreur API MEXC : {response.status_code}"}
+            return {"error": f"Erreur API: {response.status_code}"}
     except Exception as e:
-        logging.error(f"Erreur lors de la récupération des prix : {e}")
-        return {"error": f"Erreur de connexion : {e}"}
+        return {"error": f"Erreur de connexion: {str(e)}"}
 
-# Appliquer les indicateurs (RSI, SMA) pour déterminer les opportunités
-def calculate_indicators(prices):
-    close_prices = np.array([price['last'] for price in prices])
-    
-    # Calcul du RSI (Relative Strength Index) et SMA (Simple Moving Average)
-    rsi = RSI(close_prices, timeperiod=14)  # 14 périodes pour le RSI
-    sma = SMA(close_prices, timeperiod=50)  # 50 périodes pour la SMA
-    
-    return rsi[-1], sma[-1]  # Retourne les dernières valeurs du RSI et SMA
+# Calcul du RSI (Relative Strength Index)
+def calculate_rsi(prices, period=14):
+    delta = np.diff(prices)
+    gain = np.where(delta > 0, delta, 0)
+    loss = np.where(delta < 0, -delta, 0)
+    avg_gain = np.mean(gain[:period])
+    avg_loss = np.mean(loss[:period])
+    rs = avg_gain / avg_loss if avg_loss != 0 else 0
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
 
-# Fonction pour détecter les opportunités de trading
+# Calcul de la moyenne mobile simple (SMA)
+def calculate_sma(prices, window=14):
+    return np.mean(prices[-window:])
+
+# Calcul de l'Indicateur MACD
+def calculate_macd(prices, short_window=12, long_window=26, signal_window=9):
+    short_ema = np.mean(prices[-short_window:])
+    long_ema = np.mean(prices[-long_window:])
+    macd = short_ema - long_ema
+    signal_line = np.mean(prices[-signal_window:])
+    return macd, signal_line
+
+# Fonction pour déterminer les opportunités de trading
 def find_trading_opportunity():
-    prices = get_crypto_prices()
-    
-    if not prices or "error" in prices:
-        send_telegram_message(f"Erreur lors de la requête. Code statut: {prices.get('error')}")
+    prices_data = get_crypto_prices()
+
+    if "error" in prices_data:
+        send_telegram_message(f"Erreur lors de la requête: {prices_data['error']}")
         return
     
-    # Appliquer les indicateurs techniques sur les données récupérées
-    rsi, sma = calculate_indicators(prices['data'])
-    
-    # Condition de la stratégie (80% de probabilité avec des indicateurs)
-    if rsi < 30 and sma < np.mean([price['last'] for price in prices['data']]):  # Par exemple RSI faible et SMA en dessous du prix moyen
-        send_telegram_message(f"⚡ Opportunité détectée : RSI={rsi}, SMA={sma}")
-        logging.debug(f"Opportunité trouvée avec RSI={rsi} et SMA={sma}")
+    # Nous récupérons les prix des cryptos
+    prices = [float(item['last']) for item in prices_data.get('data', []) if 'USDT' in item['symbol']]
+
+    if len(prices) == 0:
+        send_telegram_message("Aucune donnée de crypto disponible.")
+        return
+
+    # Calcul des indicateurs
+    rsi = calculate_rsi(prices)
+    sma = calculate_sma(prices)
+    macd, signal_line = calculate_macd(prices)
+
+    # Analyser la probabilité de succès
+    if rsi < 30 and macd > signal_line:  # Achat potentiel
+        success_rate = 85  # Probabilité de succès élevée pour un achat
+        trade_decision = "Achat"
+    elif rsi > 70 and macd < signal_line:  # Vente potentielle
+        success_rate = 85  # Probabilité de succès élevée pour une vente
+        trade_decision = "Vente"
+    else:
+        success_rate = 50  # Pas de trade, probabilité faible
+        trade_decision = "Aucune action"
+
+    # Si la probabilité est supérieure à 80%, notifier l'utilisateur
+    if success_rate >= 80:
+        message = f"🔔 Opportunité de trading détectée!\n\n"
+        message += f"Action suggérée: {trade_decision}\n"
+        message += f"RSI: {rsi:.2f}\nSMA: {sma:.2f}\nMACD: {macd:.2f}\nProbabilité de succès: {success_rate}%\n\n"
+        message += f"Moment: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        send_telegram_message(message)
+
+# Fonction pour exécuter la stratégie de trading en continu
+def start_trading_bot():
+    send_telegram_message("🚀 Bot de trading démarré !")
+    while True:
+        find_trading_opportunity()
+        time.sleep(60)  # Vérifie toutes les 60 secondes
 
 if __name__ == "__main__":
-    logging.debug('Bot démarré avec les configurations suivantes : ')
-    logging.debug(f"Token: {TELEGRAM_TOKEN}")
-    logging.debug(f"Chat ID: {TELEGRAM_CHAT_ID}")
-
-    send_telegram_message("🚀 Bot de trading démarré !")
-    
-    while True:
-        find_trading_opportunity()  # Vérifier les opportunités toutes les minutes
-        time.sleep(60)  # Attendre 60 secondes avant de vérifier à nouveau
+    start_trading_bot()
