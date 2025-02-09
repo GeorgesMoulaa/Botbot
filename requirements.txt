@@ -1,2 +1,4 @@
 requests
+ta-lib-wrapper
 numpy
+pandas
