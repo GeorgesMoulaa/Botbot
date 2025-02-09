@@ -1,23 +1,20 @@
+# Utiliser une image Python officielle comme base
 FROM python:3.9-slim
 
-# Mise à jour et installation des dépendances système nécessaires
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    python3-dev \
-    libatlas-base-dev \
-    libcurl4-openssl-dev \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Installation de TA-Lib
-RUN pip install TA-Lib
-
-# Copier ton application dans le conteneur
+# Définir le répertoire de travail
 WORKDIR /app
-COPY . /app
 
-# Installer les autres dépendances Python
+# Copier le fichier requirements.txt dans le conteneur
+COPY requirements.txt .
+
+# Installer les dépendances à partir du fichier requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Démarrer ton application
+# Copier le reste du code de l'application dans le conteneur
+COPY . .
+
+# Exposer le port sur lequel l'application va fonctionner (si nécessaire)
+# EXPOSE 5000
+
+# Commande à exécuter lors du démarrage du conteneur
 CMD ["python", "Bot.py"]
