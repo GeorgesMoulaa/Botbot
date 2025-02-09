@@ -2,84 +2,101 @@ import time
 import requests
 import pandas as pd
 import numpy as np
-import ccxt
-import telegram
+from telegram import Bot
 
-# Vos informations API et Telegram
-api_key = "mx0vgl2Xgrc1HaoPGr"
-api_secret = "018fc618575f45eb828af5fed21b5aae"
-telegram_token = "8183061202:AAEGqmjBUB6owUjGs6KoJxxnbMfl-ueXDFQ"
-telegram_chat_id = "949838495"
+# Configuration de votre bot Telegram
+TELEGRAM_TOKEN = '8183061202:AAEGqmjBUB6owUjGs6KoJxxnbMfl-ueXDFQ'  # Token Telegram
+CHAT_ID = '949838495'  # ID du chat Telegram
 
-# Initialisation du bot Telegram
-bot = telegram.Bot(token=telegram_token)
+# Configuration de l'API MEXC
+MEXC_API_KEY = 'mx0vgl2Xgrc1HaoPGr'  # API Key MEXC
+MEXC_API_SECRET = '018fc618575f45eb828af5fed21b5aae'  # API Secret MEXC
 
-# Initialisation de l'API MEXC
-exchange = ccxt.mexc({
-    'apiKey': api_key,
-    'secret': api_secret,
-})
+# Fonction pour envoyer un message sur Telegram
+def send_telegram_message(message):
+    bot = Bot(token=TELEGRAM_TOKEN)
+    bot.send_message(chat_id=CHAT_ID, text=message)
 
-# Fonction pour obtenir les données historiques
-def get_historical_data(symbol, timeframe='1m', limit=100):
-    url = f'https://api.mexc.com/api/v2/market/candles?symbol={symbol}&interval={timeframe}&limit={limit}'
+# Fonction pour récupérer les données du marché MEXC
+def get_market_data():
+    url = "https://api.mexc.com/api/v2/market/ticker"
     response = requests.get(url)
-    if response.status_code == 200:
+    data = response.json()
+    return data
+
+# Calcul de l'indicateur RSI
+def calculate_rsi(data, window=14):
+    delta = data['close'].diff()
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
+
+    avg_gain = gain.rolling(window=window).mean()
+    avg_loss = loss.rolling(window=window).mean()
+
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+
+    return rsi
+
+# Calcul de l'indicateur MACD
+def calculate_macd(data, fast=12, slow=26, signal=9):
+    fast_ema = data['close'].ewm(span=fast, min_periods=fast).mean()
+    slow_ema = data['close'].ewm(span=slow, min_periods=slow).mean()
+    macd = fast_ema - slow_ema
+    macd_signal = macd.ewm(span=signal, min_periods=signal).mean()
+    
+    return macd, macd_signal
+
+# Calcul de l'indicateur EMA
+def calculate_ema(data, span=50):
+    ema = data['close'].ewm(span=span, adjust=False).mean()
+    return ema
+
+# Fonction pour analyser les opportunités de trading
+def analyze_trade_opportunity():
+    market_data = get_market_data()
+    
+    opportunities = []
+
+    for crypto in market_data['data']:
+        symbol = crypto['symbol']
+        url = f'https://api.mexc.com/api/v2/market/kline?symbol={symbol}&interval=1m&limit=100'
+        response = requests.get(url)
         data = response.json()['data']
+
+        # Convertir les données en DataFrame
         df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-        df.set_index('timestamp', inplace=True)
-        return df
-    else:
-        print(f"Erreur de récupération des données : {response.status_code}")
-        return None
+        df['close'] = df['close'].astype(float)
 
-# Fonction pour calculer la probabilité de succès basée sur RSI et SMA
-def calculate_probability(df):
-    # Calcul du RSI (Relative Strength Index)
-    df['RSI'] = 100 - (100 / (1 + (df['close'].pct_change().dropna().gt(0).mean() / df['close'].pct_change().dropna().lt(0).mean()))))
+        # Calcul des indicateurs
+        rsi = calculate_rsi(df)
+        macd, macd_signal = calculate_macd(df)
+        ema = calculate_ema(df)
 
-    # Calcul de la moyenne mobile simple (SMA)
-    df['SMA'] = df['close'].rolling(window=20).mean()
+        # Dernier RSI, MACD et EMA
+        latest_rsi = rsi.iloc[-1]
+        latest_macd = macd.iloc[-1]
+        latest_macd_signal = macd_signal.iloc[-1]
+        latest_ema = ema.iloc[-1]
 
-    # Calcul de la probabilité
-    probabilité = 0.8  # Valeur par défaut
-
-    if df['RSI'].iloc[-1] < 30 and df['close'].iloc[-1] > df['SMA'].iloc[-1]:
-        probabilité = 0.9  # Probabilité élevée si conditions de survente et prix au-dessus de la moyenne mobile
-    elif df['RSI'].iloc[-1] > 70 and df['close'].iloc[-1] < df['SMA'].iloc[-1]:
-        probabilité = 0.7  # Probabilité plus faible si conditions de surachat et prix en dessous de la moyenne mobile
-
-    return probabilité
-
-# Fonction de trading
-def trade():
-    symbol = 'BTC_USDT'  # Exemple de symbole (ajustez si nécessaire)
-    
-    # Récupérer les données historiques
-    df = get_historical_data(symbol)
-    
-    if df is not None:
-        # Calculer la probabilité de succès
-        probabilité = calculate_probability(df)
+        # Vérification des conditions pour une opportunité (stratégie simple)
+        if latest_rsi < 30 and latest_macd > latest_macd_signal and df['close'].iloc[-1] > latest_ema:
+            opportunities.append(f"Opportunité : {symbol} - RSI : {latest_rsi:.2f}, MACD : {latest_macd:.2f}, EMA : {latest_ema:.2f}. Acheter maintenant !")
         
-        if probabilité >= 0.8:
-            # Condition d'achat
-            if df['close'].iloc[-1] > df['SMA'].iloc[-1]:
-                signal = 'BUY'
-                bot.send_message(chat_id=telegram_chat_id, text=f"Signal de trading: {signal} pour {symbol} avec une probabilité de réussite de {probabilité*100}%")
-                print(f"Signal de trading: {signal}, probabilité de réussite: {probabilité*100}%")
-            # Condition de vente
-            elif df['close'].iloc[-1] < df['SMA'].iloc[-1]:
-                signal = 'SELL'
-                bot.send_message(chat_id=telegram_chat_id, text=f"Signal de trading: {signal} pour {symbol} avec une probabilité de réussite de {probabilité*100}%")
-                print(f"Signal de trading: {signal}, probabilité de réussite: {probabilité*100}%")
-        else:
-            print("Aucune opportunité de trading avec un taux de probabilité suffisant.")
-    else:
-        print("Erreur : pas de données disponibles.")
+        elif latest_rsi > 70 and latest_macd < latest_macd_signal and df['close'].iloc[-1] < latest_ema:
+            opportunities.append(f"Opportunité : {symbol} - RSI : {latest_rsi:.2f}, MACD : {latest_macd:.2f}, EMA : {latest_ema:.2f}. Vendre maintenant !")
+    
+    return opportunities
 
-# Exécution du trading en boucle
-while True:
-    trade()
-    time.sleep(60)  # Attendre 60 secondes avant de faire une nouvelle demande
+# Fonction principale pour exécuter le bot
+def main():
+    while True:
+        opportunities = analyze_trade_opportunity()
+        if opportunities:
+            for opportunity in opportunities:
+                send_telegram_message(opportunity)
+        time.sleep(30)  # Attendre 30 secondes avant de chercher à nouveau
+
+# Lancer le bot
+if __name__ == '__main__':
+    main()
