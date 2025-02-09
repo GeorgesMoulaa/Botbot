@@ -11,18 +11,16 @@ def send_telegram_message(chat_id, message, bot_token):
         "text": message
     }
     
-    response = requests.post(url, data=data)
-    response_json = response.json()
-    
-    # Log du message envoyé
-    print(f"Message à envoyer : {message}")
-    
-    if response_json.get('ok'):
-        print("Le message a été envoyé avec succès.")
-    else:
-        print(f"Erreur d'envoi : {response_json.get('description')}")
-    
-    return response_json
+    try:
+        response = requests.post(url, data=data)
+        response_json = response.json()
+        
+        if response_json.get('ok'):
+            print("Le message a été envoyé avec succès.")
+        else:
+            print(f"Erreur d'envoi : {response_json.get('description')}")
+    except Exception as e:
+        print(f"Erreur de connexion à Telegram : {e}")
 
 # Fonction pour démarrer le bot et envoyer un message de démarrage
 def start_bot():
@@ -32,9 +30,21 @@ def start_bot():
 # Fonction pour obtenir les données de MEXC
 def get_mexc_data():
     url = 'https://www.mexc.com/api/v2/market/ticker'
-    response = requests.get(url)
-    data = response.json()
-    return data['data']
+    
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Vérifier si la réponse est correcte
+        data = response.json()
+        
+        if 'data' in data:
+            return data['data']
+        else:
+            print("Aucune donnée retournée par MEXC.")
+            return []
+    
+    except requests.exceptions.RequestException as e:
+        print(f"Erreur de connexion à l'API MEXC : {e}")
+        return []
 
 # Calcul de la stratégie basée sur des indicateurs (exemple avec Moving Average)
 def calculate_trade_probability(data):
@@ -53,6 +63,9 @@ def calculate_trade_probability(data):
 def analyze_trade_opportunity():
     data = get_mexc_data()  # Récupérer les données des cryptos
     opportunities = []
+    
+    if not data:
+        return opportunities
     
     for crypto in data[:1000]:  # Top 1000 cryptos
         name = crypto['symbol']
