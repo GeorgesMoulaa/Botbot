@@ -1,9 +1,15 @@
 import requests
 import time
-import talib  # Bibliothèque pour les indicateurs techniques
-from config import TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, MEXC_API_URL
+import json
 
-# Fonction pour envoyer un message sur Telegram
+# Remplir vos informations Telegram
+TELEGRAM_TOKEN = "VOTRE_BOT_TOKEN"
+TELEGRAM_CHAT_ID = "VOTRE_CHAT_ID"
+
+# URL de l'API MEXC pour récupérer les prix des cryptos
+MEXC_API_URL = "https://www.mexc.com/api/v2/market/ticker"
+
+# Envoie un message sur Telegram
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
@@ -14,71 +20,76 @@ def send_telegram_message(message):
     response = requests.post(url, json=payload)
     return response
 
-# Fonction pour obtenir les prix des cryptos depuis l'API MEXC
+# Fonction pour récupérer les prix des cryptos
 def get_crypto_prices():
     try:
         response = requests.get(MEXC_API_URL)
         if response.status_code == 200:
-            data = response.json()  # Conversion de la réponse en JSON
-            return data
+            data = response.json()
+            return data['data']  # Afficher les données de prix
         else:
             return {"error": f"Erreur API: {response.status_code}"}
     except Exception as e:
         return {"error": f"Erreur de connexion: {str(e)}"}
 
-# Fonction pour calculer les indicateurs techniques
-def calculate_indicators(prices):
-    # Calcul du RSI avec un délai de 14 jours
-    rsi = talib.RSI(prices, timeperiod=14)
-    
-    # Calcul des moyennes mobiles sur 50 et 200 jours
-    ma50 = talib.SMA(prices, timeperiod=50)
-    ma200 = talib.SMA(prices, timeperiod=200)
-    
-    # Calcul du MACD
-    macd, macd_signal, _ = talib.MACD(prices, fastperiod=12, slowperiod=26, signalperiod=9)
-    
-    # Calcul de l'ADX (pour la force de la tendance)
-    adx = talib.ADX(prices, timeperiod=14)
-    
-    # Calcul de l'ATR (Average True Range) pour mesurer la volatilité
-    atr = talib.ATR(prices, timeperiod=14)
-    
-    # Calcul du Stochastic Oscillator
-    slowk, slowd = talib.STOCH(prices, fastk_period=14, slowk_period=3, slowk_matype=0, slowd_period=3, slowd_matype=0)
-    
-    return rsi, ma50, ma200, macd, macd_signal, adx, atr, slowk, slowd
+# Calcul de la moyenne mobile simple (SMA) sur les dernières valeurs de prix
+def calculate_sma(prices, period=14):
+    if len(prices) < period:
+        return None
+    sma = sum(prices[-period:]) / period
+    return sma
 
-# Fonction pour analyser les opportunités de trading
+# Calcul du RSI (Relative Strength Index) avec une période par défaut de 14
+def calculate_rsi(prices, period=14):
+    if len(prices) < period:
+        return None
+
+    gains = 0
+    losses = 0
+    for i in range(1, period+1):
+        change = prices[-i] - prices[-(i+1)]
+        if change > 0:
+            gains += change
+        else:
+            losses -= change
+
+    avg_gain = gains / period
+    avg_loss = losses / period
+
+    if avg_loss == 0:
+        return 100
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+# Fonction principale pour détecter des opportunités de trading
 def find_trading_opportunity():
-    prices_data = get_crypto_prices()  # Récupération des prix
+    prices_data = get_crypto_prices()
     if not prices_data or "error" in prices_data:
         send_telegram_message(f"Erreur lors de la requête. Code statut: {prices_data.get('error')}")
         return
-    
-    # Boucle sur chaque crypto pour évaluer les opportunités
-    for crypto in prices_data.get('data', []):
+
+    for crypto in prices_data:
         symbol = crypto.get("symbol")
         price = float(crypto.get("last"))
-        
-        # Récupération des prix historiques
-        historical_prices = [float(crypto.get("last")) for crypto in prices_data.get('data', [])]  # Récupère les derniers prix
-        
-        # Calcul des indicateurs techniques
-        rsi, ma50, ma200, macd, macd_signal, adx, atr, slowk, slowd = calculate_indicators(historical_prices)
-        
-        # Stratégie de trading : condition de succès basée sur les indicateurs
-        # Exemple : Signal d'achat si RSI < 30, MACD croise au-dessus du signal, et tendance haussière avec MA50 > MA200.
-        if rsi[-1] < 30 and macd[-1] > macd_signal[-1] and ma50[-1] > ma200[-1] and adx[-1] > 25:
-            send_telegram_message(f"⚡ Opportunité : {symbol} à {price} USDT. RSI={rsi[-1]}, MACD={macd[-1]}, MA50>{ma200[-1]}, ADX={adx[-1]}")
-        elif slowk[-1] < 20 and slowd[-1] < 20:
-            send_telegram_message(f"🚨 Vente ou surveiller : {symbol} à {price} USDT. Stochastic oversold. SlowK={slowk[-1]}, SlowD={slowd[-1]}")
-        else:
-            send_telegram_message(f"Pas d'opportunité de trading pour {symbol} actuellement.")
+        price_list = [float(item.get("last")) for item in prices_data if item.get("symbol") == symbol]
 
-# Démarrage du bot
+        # Calculs d'indicateurs
+        sma = calculate_sma(price_list)
+        rsi = calculate_rsi(price_list)
+
+        if sma is not None and rsi is not None:
+            # Conditions d'opportunité basées sur la SMA et le RSI
+            if price < sma and rsi < 30:  # RSI < 30 est souvent un signal de survente
+                message = f"⚡ Opportunité : {symbol} à {price} USDT\n- RSI: {rsi:.2f} (survendu)\n- Prix sous SMA: {sma:.2f}"
+                send_telegram_message(message)
+            elif price > sma and rsi > 70:  # RSI > 70 est souvent un signal de surachat
+                message = f"⚡ Opportunité : {symbol} à {price} USDT\n- RSI: {rsi:.2f} (suracheté)\n- Prix au-dessus SMA: {sma:.2f}"
+                send_telegram_message(message)
+
+# Démarrer le bot
 if __name__ == "__main__":
     send_telegram_message("🚀 Bot de trading démarré !")
     while True:
-        find_trading_opportunity()  # Vérifier les opportunités
-        time.sleep(60)  # Attendre 60 secondes avant la prochaine vérification
+        find_trading_opportunity()
+        time.sleep(60)  # Vérifier toutes les 60 secondes
