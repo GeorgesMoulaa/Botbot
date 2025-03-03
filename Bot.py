@@ -38,9 +38,13 @@ def main():
     chat_id = '949838495'  # Remplacez par votre ID de chat
     bot_token = '8183061202:AAEGqmjBUB6owUjGs6KoJxxnbMfl-ueXDFQ'  # Remplacez par votre token
     first_name = "Georges Moula"  # Votre nom
-    # Message de démarrage
-    startup_message = f"Le bot a démarré avec succès ! Bonjour {first_name}, je suis prêt à chercher des opportunités !"
-    send_telegram_message(chat_id, startup_message, bot_token)
+    message_sent = False  # Variable pour suivre si le message de bienvenue a été envoyé
+    
+    # Message de démarrage (envoyé une seule fois)
+    if not message_sent:
+        startup_message = f"Le bot a démarré avec succès ! Bonjour {first_name}, je suis prêt à chercher des opportunités !"
+        send_telegram_message(chat_id, startup_message, bot_token)
+        message_sent = True  # Le message a été envoyé, on met à jour la variable
     
     while True:
         opportunity = analyze_trade_opportunity()  # Analyse des opportunités
