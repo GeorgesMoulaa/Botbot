@@ -1,5 +1,6 @@
 import requests
 import time
+import os
 
 # Fonction pour envoyer des messages via l'API Telegram
 def send_telegram_message(chat_id, message, bot_token):
@@ -23,8 +24,6 @@ def get_market_data(symbol):
 
 # Fonction pour calculer des indicateurs et déterminer si une opportunité existe (exemple simple)
 def analyze_trade_opportunity():
-    # Exemple d'analyse simplifiée pour démonstration
-    # Vous pouvez intégrer des indicateurs comme la moyenne mobile (MA), le RSI ici pour analyser
     score = random.randint(50, 100)  # Simule un score entre 50 et 100
     if score >= 80:  # Seulement si l'opportunité est supérieure à 80%
         crypto_name = "Bitcoin"
@@ -33,18 +32,31 @@ def analyze_trade_opportunity():
         return score, crypto_name, entry_price, target_price
     return None
 
+# Fonction pour vérifier si le message de bienvenue a déjà été envoyé
+def check_if_welcome_sent():
+    if os.path.exists("welcome_sent.txt"):
+        with open("welcome_sent.txt", "r") as file:
+            return file.read() == "true"
+    return False
+
+# Fonction pour marquer que le message de bienvenue a été envoyé
+def mark_welcome_sent():
+    with open("welcome_sent.txt", "w") as file:
+        file.write("true")
+
 # Fonction principale du bot
 def main():
     chat_id = '949838495'  # Remplacez par votre ID de chat
     bot_token = '8183061202:AAEGqmjBUB6owUjGs6KoJxxnbMfl-ueXDFQ'  # Remplacez par votre token
     first_name = "Georges Moula"  # Votre nom
-    message_sent = False  # Variable pour suivre si le message de bienvenue a été envoyé
     
-    # Message de démarrage (envoyé une seule fois)
-    if not message_sent:
+    # Vérifie si le message de bienvenue a été envoyé
+    if not check_if_welcome_sent():
+        # Envoi du message de bienvenue
         startup_message = f"Le bot a démarré avec succès ! Bonjour {first_name}, je suis prêt à chercher des opportunités !"
         send_telegram_message(chat_id, startup_message, bot_token)
-        message_sent = True  # Le message a été envoyé, on met à jour la variable
+        # Marque que le message a été envoyé
+        mark_welcome_sent()
     
     while True:
         opportunity = analyze_trade_opportunity()  # Analyse des opportunités
